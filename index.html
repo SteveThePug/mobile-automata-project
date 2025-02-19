@@ -5,11 +5,83 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mobile Automata Project</title>
+    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
 </head>
 
-<body>
-    <h1>Hello world</h1>
-    <div id="automata-container"></div>
+<body class="p-5 gap-2">
+    <h1 class="text-4xl font-bold text-center my-8">Mobile Automata Simulator</h1>
+
+    <hr class="border-t border-gray-300 my-4">
+
+    <div class="flex flex-row gap-8">
+        <div id="tape-input" class="flex-1">
+            <h2 class="text-xl font-bold mb-4">Input Tape</h2>
+            <div class="flex flex-col gap-2">
+                <div class="flex items-center gap-2">
+                    <label for="tape-string" class="w-32">Tape Contents:</label>
+                    <input type="text" id="input_tape" value="0101010101" placeholder="Enter tape string..." class="flex-1 p-1 border rounded">
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <label for="head-position" class="w-32">Head Position:</label>
+                    <input type="number" id="input_head" value="0" min="0" class="flex-1 p-1 border rounded">
+                </div>
+            </div>
+        </div>
+
+        <div id="input_ma" class="flex-1">
+            <h2 class="text-xl font-bold mb-4">Mobile Automaton Definition</h2>
+            <div class="flex flex-col gap-2">
+                <div class="flex items-center gap-2">
+                    <label for="n-size" class="w-32">Input Size (n):</label>
+                    <input type="number" id="input_n" value="3" min="1" class="flex-1 p-1 border rounded">
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <label for="sigma" class="w-32">Input Alphabet (Σ):</label>
+                    <input type="text" id="input_sigma" placeholder="Comma-separated symbols" value="0,1" class="flex-1 p-1 border rounded">
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <label for="gamma" class="w-32">Working Alphabet (Γ):</label>
+                    <input type="text" id="input_gamma" placeholder="Comma-separated symbols" value="a,b" class="flex-1 p-1 border rounded">
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <label for="delta" class="w-32">Transition Function (δ):</label>
+                    <textarea id="input_delta" placeholder="Format: input,output,direction" class="flex-1 p-1 border rounded">000,111,R&#10;010,101,L&#10;</textarea>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <label for="b" class="w-32">Blank Symbol:</label>
+                    <input type="text" id="input_b" placeholder="Single Character" value="_" class="flex-1 p-1 border rounded">
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <label for="F" class="w-32">Terminating Words:</label>
+                    <input type="text" id="input_F" placeholder="Comma-separated symbols" value="011" class="flex-1 p-1 border rounded">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <hr class="border-t border-gray-300 my-4">
+
+    <div id="tape-display" class="w-full">
+        <h2>TAPE</h2>
+        <div id="output_tape" class="w_full"></div>
+    </div>
+
+
+    <div class="flex gap-2 mt-4">
+        <button id="button_step" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Step</button>
+        <button id="button_steps" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Run Multiple Steps</button>
+    </div>
+
+    <div id="ma-display">
+        <h2>MA</h2>
+        <div id="output_ma"></div>
+    </div>
 </body>
 
 <script src="jquery-3.7.1.min.js"></script>
