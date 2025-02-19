@@ -107,33 +107,66 @@ function updateTapeAndMA() {
     renderTape();
 }
 
-function renderTape() {
+function initialiseTape() {
     const tapeDiv = $('#output_tape');
     tapeDiv.empty();
 
-    // Create container for tape cells
-    const container = $('<div>').addClass('relative overflow-x-auto p-2 h-20');
-    
     // Add each tape cell
-    for (let i = 0; i < VISIBLE; i++) {
+    const radius_visible = VISIBLE/2
+    const head = tape.head
+
+    let j = 0
+    for (let i = head-radius_visible; i < head+radius_visible; i++) {
         const cell = $('<div>')
             .addClass('border border-gray-400 p-2 min-w-[40px] text-center inline-block')
             .css({
                 'margin-right': '0.25rem',
                 'position': 'absolute',
-                'left': `${i * 40}px`
+                'left': `${j * 40}px`
             })
-            .text(tape.arr[i+VISIBLE/2]);
+            .text(tape.arr[i]);
+            console.log(i)
+        j++;
+
             
         // Highlight current head position
-        if (i === tape.head-VISIBLE/2) {
+        if (i === head) {
             cell.addClass('bg-blue-200');
         }
         
-        container.append(cell);
+        tapeDiv.append(cell);
     }
+}
 
-    tapeDiv.append(container);
+function renderTape() {
+    const tapeDiv = $('#output_tape');
+    tapeDiv.empty();
+
+    // Add each tape cell
+    const radius_visible = VISIBLE/2
+    const head = tape.head
+
+    let j = 0
+    for (let i = head-radius_visible; i < head+radius_visible; i++) {
+        const cell = $('<div>')
+            .addClass('border border-gray-400 p-2 min-w-[40px] text-center inline-block')
+            .css({
+                'margin-right': '0.25rem',
+                'position': 'absolute',
+                'left': `${j * 40}px`
+            })
+            .text(tape.arr[i]);
+            console.log(i)
+        j++;
+
+            
+        // Highlight current head position
+        if (i === head) {
+            cell.addClass('bg-blue-200');
+        }
+        
+        tapeDiv.append(cell);
+    }
 }
 
 // Add event listeners
@@ -158,6 +191,10 @@ $('#button_steps').on('click', () => {
         tape = ma.t_step(tape, 10);
         renderTape();
     }
+});
+
+$('#button_reset').on('click', () => {
+    updateTapeAndMA();
 });
 
 // Initial setup
