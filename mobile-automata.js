@@ -1,5 +1,6 @@
 const TAPE_PADDING = 25;
 const VISIBLE = 30;
+const CELL_SIZE = 60;
 
 class Tape {
     constructor(arr, head, blank) {
@@ -27,7 +28,7 @@ class MA {
         
         // Look up transition in delta
         if (!(slice.join('') in this.delta)) {
-            return false;
+            return tape;
         }
 
         // Apply transition by replacing slice with output
@@ -118,11 +119,13 @@ function initialiseTape() {
     let j = 0
     for (let i = head-radius_visible; i < head+radius_visible; i++) {
         const cell = $('<div>')
-            .addClass('border border-gray-400 p-2 min-w-[40px] text-center inline-block')
+            .addClass(`border border-gray-400 p-2 text-center inline-block flex items-center justify-center`)
             .css({
                 'margin-right': '0.25rem',
                 'position': 'absolute',
-                'left': `${j * 40}px`
+                'left': `${j * CELL_SIZE}px`,
+                'height': `${CELL_SIZE}px`,
+                'width': `${CELL_SIZE}px`
             })
             .text(tape.arr[i]);
             console.log(i)
@@ -132,6 +135,10 @@ function initialiseTape() {
         // Highlight current head position
         if (i === head) {
             cell.addClass('bg-blue-200');
+        }
+
+        if (i >= head && i < head+ma.n) {
+            cell.addClass('border-red-400 border-2');
         }
         
         tapeDiv.append(cell);
@@ -149,11 +156,11 @@ function renderTape() {
     let j = 0
     for (let i = head-radius_visible; i < head+radius_visible; i++) {
         const cell = $('<div>')
-            .addClass('border border-gray-400 p-2 min-w-[40px] text-center inline-block')
+            .addClass(`border border-gray-400 p-2 h-[${CELL_SIZE}px] w-[${CELL_SIZE}px] text-center inline-block`)
             .css({
                 'margin-right': '0.25rem',
                 'position': 'absolute',
-                'left': `${j * 40}px`
+                'left': `${j * CELL_SIZE}px`
             })
             .text(tape.arr[i]);
             console.log(i)
@@ -163,6 +170,10 @@ function renderTape() {
         // Highlight current head position
         if (i === head) {
             cell.addClass('bg-blue-200');
+        }
+
+        if (i >= head && i < head+ma.n) {
+            cell.addClass('border-black-400 border-2');
         }
         
         tapeDiv.append(cell);
