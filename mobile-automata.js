@@ -1,6 +1,13 @@
+// Constant parameters
 const TAPE_PADDING = 25;
-const VISIBLE = 30;
-const CELL_SIZE = 60;
+const VISIBLE = 28;
+const CELL_SIZE = 3.4;
+
+// Initialize tape and MA
+let tape = null;
+let prev_tape = null;
+let ma = null;
+let terminated = false;
 
 class Tape {
     constructor(arr, head, blank) {
@@ -28,6 +35,7 @@ class MA {
         
         // Look up transition in delta
         if (!(slice.join('') in this.delta)) {
+            terminated = true;
             return tape;
         }
 
@@ -77,13 +85,11 @@ function parseDelta(str) {
     return delta;
 }
 
-// Initialize tape and MA
-let tape = null;
-let prev_tape = null;
-let ma = null;
 
 // Update tape and MA when inputs change
-function updateTapeAndMA() {
+function loadMA() {
+    terminated = false;
+
     // Create new tape
     const tapeString = $('#input_tape').val();
     const headPosition = parseInt($('#input_head').val());
@@ -105,7 +111,7 @@ function updateTapeAndMA() {
 
     const delta = parseDelta($('#input_delta').val());
     ma = new MA(n, sigma, gamma, b, delta, F);
-    renderTape();
+    initialiseTape();
 }
 
 function initialiseTape() {
@@ -115,98 +121,73 @@ function initialiseTape() {
     // Add each tape cell
     const radius_visible = VISIBLE/2
     const head = tape.head
+    
+    tapeDiv.addClass('relative overflow-x-auto p-2 w-full h-[200px] flex items-center transition-all duration-500');
 
     let j = 0
     for (let i = head-radius_visible; i < head+radius_visible; i++) {
         const cell = $('<div>')
-            .addClass(`border border-gray-400 p-2 text-center inline-block flex items-center justify-center`)
+            .addClass(`border-2 border-gray-400 p-2 h-[${CELL_SIZE}vw] w-[${CELL_SIZE}vw] text-center inline-block transition-all duration-500`)
             .css({
                 'margin-right': '0.25rem',
                 'position': 'absolute',
-                'left': `${j * CELL_SIZE}px`,
-                'height': `${CELL_SIZE}px`,
-                'width': `${CELL_SIZE}px`
+                'left': `${j * CELL_SIZE}vw`
             })
             .text(tape.arr[i]);
             console.log(i)
         j++;
 
-            
-        // Highlight current head position
-        if (i === head) {
-            cell.addClass('bg-blue-200');
-        }
-
         if (i >= head && i < head+ma.n) {
-            cell.addClass('border-red-400 border-2');
+            cell.addClass('border-indigo-800 border-2');
         }
         
         tapeDiv.append(cell);
     }
+    
+    tapeDiv.append(tapeDiv)
 }
 
-function renderTape() {
+function updateTape() {
     const tapeDiv = $('#output_tape');
-    tapeDiv.empty();
-
-    // Add each tape cell
-    const radius_visible = VISIBLE/2
-    const head = tape.head
-
-    let j = 0
-    for (let i = head-radius_visible; i < head+radius_visible; i++) {
-        const cell = $('<div>')
-            .addClass(`border border-gray-400 p-2 h-[${CELL_SIZE}px] w-[${CELL_SIZE}px] text-center inline-block`)
-            .css({
-                'margin-right': '0.25rem',
-                'position': 'absolute',
-                'left': `${j * CELL_SIZE}px`
-            })
-            .text(tape.arr[i]);
-            console.log(i)
-        j++;
-
-            
-        // Highlight current head position
-        if (i === head) {
-            cell.addClass('bg-blue-200');
-        }
-
-        if (i >= head && i < head+ma.n) {
-            cell.addClass('border-black-400 border-2');
-        }
-        
-        tapeDiv.append(cell);
+    
+    for (let cell of tapeDiv.children()) {
+        const $cell = $(cell);
+        // Convert px to vw by dividing by window width and multiplying by 100
+        const currentLeft = parseFloat($cell.css('left')) / window.innerWidth * 100;
+        // Move left
+        $cell.css('left', `${currentLeft - CELL_SIZE}vw`);
+        // Move right
+        $cell.css('left', `${currentLeft + CELL_SIZE}vw`);
     }
 }
 
 // Add event listeners
-$('#input_tape').on('change', updateTapeAndMA);
-$('#input_head').on('change', updateTapeAndMA);
-$('#input_n').on('change', updateTapeAndMA);
-$('#input_sigma').on('change', updateTapeAndMA);
-$('#input_gamma').on('change', updateTapeAndMA);
-$('#input_delta').on('change', updateTapeAndMA);
-$('#input_b').on('change', updateTapeAndMA);
-$('#input_F').on('change', updateTapeAndMA);
+$('#input_tape').on('change', loadMA);
+$('#input_head').on('change', loadMA);
+$('#input_n').on('change', loadMA);
+$('#input_sigma').on('change', loadMA);
+$('#input_gamma').on('change', loadMA);
+$('#input_delta').on('change', loadMA);
+$('#input_b').on('change', loadMA);
+$('#input_F').on('change', loadMA);
 
 $('#button_step').on('click', () => {
     if (ma && tape) {
         tape = ma.step(tape);
-        renderTape();
+        updateTape();
     }
 });
 
 $('#button_steps').on('click', () => {
     if (ma && tape) {
         tape = ma.t_step(tape, 10);
-        renderTape();
+        updateTape();
     }
 });
 
 $('#button_reset').on('click', () => {
-    updateTapeAndMA();
+    loadMA();
 });
 
 // Initial setup
-updateTapeAndMA();
+loadMA();
