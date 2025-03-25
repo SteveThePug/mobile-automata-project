@@ -14,23 +14,9 @@ let animationPaused = false;
 // Initialize tape and MA
 let tape = null;
 let ma = null;
+let steps = 10;
 let terminated = false;
-let steps = 10000;
 
-document.addEventListener('visibilitychange', function() {
-  isPageVisible = document.visibilityState === 'visible';
-  
-  if (!isPageVisible) {
-    // Pause any active animations when tab is hidden
-    animationPaused = true;
-    $('.active_cells, .inactive_cells').css('transition', 'none');
-  } else {
-    // Resume animations when tab becomes visible again
-    animationPaused = false;
-    $('.active_cells, .inactive_cells').css('transition', 'all ease-in-out');
-    $('.active_cells, .inactive_cells').css('transition-duration', `${STEP_DURATION-50}ms`);
-  }
-});
 
 function make_cell(val, left_px, top_px=CELL_SIZE_PX) {
     return $('<div>')
@@ -51,16 +37,18 @@ function make_cell(val, left_px, top_px=CELL_SIZE_PX) {
 }
 
 class Tape {
-    constructor(arr, head, blank_symbol) {
+    constructor(arr, head, blank_symbol, div_id) {
         // Pad the array to make sure that we have enough visible cells populating the machine
         const PAD_LEFT = Math.max(0, RADIUS_VISIBLE-head);
         const PAD_RIGHT = Math.max(0, VISIBLE-(PAD_LEFT+arr.length));
         this.arr = [...Array(PAD_LEFT).fill(blank_symbol), ...arr, ...Array(PAD_RIGHT).fill(blank_symbol)];
         this.head = PAD_LEFT+head;
-
-        // Empty HTML and prepare div
         this.blank_symbol = blank_symbol;
-        this.div = $('#output_tape');
+        this.div = $(div_id)
+    }
+
+    // Empty HTML and prepare div
+    clear_div() {
         this.div.empty();
         this.div
             .css({
@@ -71,11 +59,18 @@ class Tape {
             });
 
         // Populate div with cells centered around the head
-        // Store active_cells in this.active_cells
-        // Store inactive_cells in this.inactive_cells
-        let j = 0;
+        // Store active_cells of tape in this.active_cells
+        // Store inactive_cells (from previous inputs) in this.inactive_cells
         this.active_cells = [];
         this.inactive_cells = [];
+    }
+
+    redraw_div() {
+        // Clear div
+        this.clear_div()
+
+        // Make cells and populate the div
+        let j = 0;
         for (let i = this.head-RADIUS_VISIBLE; i <= this.head+RADIUS_VISIBLE; i++) {
             const cell = make_cell(this.arr[i], j * (CELL_SIZE_PX));
             j++;
@@ -92,20 +87,20 @@ class Tape {
         }
     }
 
-    replace_input_with_output(output) {
-        if (output) {
-            const [outarr, direction] = output;
-            // Update array holding tape
-            this.arr.splice(this.head, outarr.length, ...outarr)
-            // Update HTML
-            this.display_output(outarr);
-            if (direction == 1) {
-                tape.move_tape_left();
-            } else {
-                tape.move_tape_right();
-            }
+    lower_inactive_cells() {
+        // Move them down
+        this.inactive_cells.forEach(cell => {
+            const currentTop = parseFloat(cell.css('top'));
+            cell.css('top', `${currentTop + CELL_SIZE_PX}px`);
+        });
+
+        // Drop excess inactive cells if we have more than 2*ma.n
+        while (this.inactive_cells.length > 2 * ma.n) {
+            const cell = this.inactive_cells.shift();
+            cell.remove();
         }
     }
+
 
     display_output(output) {
         this.lower_inactive_cells();
@@ -132,19 +127,21 @@ class Tape {
         }
     }
 
-    lower_inactive_cells() {
-        // Move them down
-        this.inactive_cells.forEach(cell => {
-            const currentTop = parseFloat(cell.css('top'));
-            cell.css('top', `${currentTop + CELL_SIZE_PX}px`);
-        });
-
-        // Drop excess inactive cells if we have more than 2*ma.n
-        while (this.inactive_cells.length > 2 * ma.n) {
-            const cell = this.inactive_cells.shift();
-            cell.remove();
+    replace_input_with_output(output) {
+        if (output) {
+            const [out_arr, direction] = output;
+            // Update array holding tape
+            this.arr.splice(this.head, out_arr.length, ...out_arr)
+            // Update HTML
+            this.display_output(out_arr);
+            if (direction == 1) {
+                tape.move_tape_left();
+            } else {
+                tape.move_tape_right();
+            }
         }
     }
+
 
     move_tape_left() {
         let idx_to_get = this.head+RADIUS_VISIBLE+1;
@@ -328,11 +325,12 @@ function loadMA() {
     // Create new tape
     const tapeString = $('#input_tape').val();
     const headPosition = parseInt($('#input_head').val());
-    tape = new Tape(tapeString.split(''), headPosition, blank_symbol);
+    tape = new Tape(tapeString.split(''), headPosition, blank_symbol, '#output_tape');
+    tape.redraw_div()
 }
 
 
-// Add event listeners
+// Add input event listeners
 $('#input_tape').on('change', loadMA);
 $('#input_head').on('change', loadMA);
 $('#input_n').on('change', loadMA);
@@ -342,6 +340,8 @@ $('#input_delta').on('change', loadMA);
 $('#input_b').on('change', loadMA);
 $('#input_F').on('change', loadMA);
 
+
+// step the MA
 function stepMA(duration=STEP_DURATION) {
     const button = $('#button_step');
     if (button.prop('disabled') || animationPaused) return;
@@ -395,13 +395,27 @@ function multiStepMA() {
     doStep();
 }
 
+// Button event listeners
 $('#button_step').on('click', () => stepMA());
 $('#button_steps').on('click', () => multiStepMA());
 $('#button_left').on('click', () => tape.move_tape_left());
 $('#button_right').on('click', () => tape.move_tape_right());
+$('#button_reset').on('click', () => loadMA());
 
-$('#button_reset').on('click', () => {
-    loadMA();
+// Visibility event listener
+document.addEventListener('visibilitychange', function() {
+  isPageVisible = document.visibilityState === 'visible';
+  
+  if (!isPageVisible) {
+    // Pause any active animations when tab is hidden
+    animationPaused = true;
+    $('.active_cells, .inactive_cells').css('transition', 'none');
+  } else {
+    // Resume animations when tab becomes visible again
+    animationPaused = false;
+    $('.active_cells, .inactive_cells').css('transition', 'all ease-in-out');
+    $('.active_cells, .inactive_cells').css('transition-duration', `${STEP_DURATION-50}ms`);
+  }
 });
 
 loadMA();
