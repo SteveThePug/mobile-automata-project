@@ -33,23 +33,17 @@
             <h2 class="text-xl font-bold mb-4">Mobile Automaton Definition</h2>
             <div class="flex flex-col gap-2">
                 <div class="flex items-center gap-2">
-                    <label for="n-size" class="w-32">Input Size (n):</label>
-                    <input type="number" id="input_n" value="3" min="1" class="flex-1 p-1 border rounded">
-                </div>
-                
-                <div class="flex items-center gap-2">
-                    <label for="sigma" class="w-32">Input Alphabet (Σ):</label>
-                    <input type="text" id="input_sigma" placeholder="Comma-separated symbols" value="0,1" class="flex-1 p-1 border rounded">
-                </div>
-                
-                <div class="flex items-center gap-2">
-                    <label for="gamma" class="w-32">Working Alphabet (Γ):</label>
-                    <input type="text" id="input_gamma" placeholder="Comma-separated symbols" value="a,b" class="flex-1 p-1 border rounded">
-                </div>
-                
-                <div class="flex items-center gap-2">
                     <label for="delta" class="w-32">Transition Function (δ):</label>
-                    <textarea id="input_delta" placeholder="Format: input,output,direction" class="flex-1 p-1 border rounded">000,111,R&#10;010,101,L&#10;</textarea>
+                    <textarea id="input_delta" placeholder="Format: input,output,direction" class="flex-1 p-1 border rounded h-32" onchange="localStorage.setItem('delta', this.value)" oninput="localStorage.setItem('delta', this.value)">000,111,R&#10;010,101,L&#10;</textarea>
+                    <script>
+                        // Load saved value on page load
+                        document.getElementById('input_delta').value = localStorage.getItem('delta') || '000,111,R\n010,101,L\n';
+                    </script>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <label for="A" class="w-32">Accepting Words:</label>
+                    <input type="text" id="input_A" placeholder="Comma-separated symbols" value="011" class="flex-1 p-1 border rounded">
                 </div>
 
                 <div class="flex items-center gap-2">
@@ -57,10 +51,28 @@
                     <input type="text" id="input_b" placeholder="Single Character" value="_" class="flex-1 p-1 border rounded">
                 </div>
 
+                <hr class="border-l border-gray-300 my-4">
+
+                <div class="flex items-center gap-2">
+                    <label for="n-size" class="w-32">Input Size (n):</label>
+                    <input type="number" id="input_n" value="3" min="1" class="flex-1 p-1 border rounded bg-gray-100" readonly>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <label for="sigma" class="w-32">Input Alphabet (Σ):</label>
+                    <input type="text" id="input_sigma" placeholder="Comma-separated symbols" value="0,1" class="flex-1 p-1 border rounded bg-gray-100" readonly>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <label for="gamma" class="w-32">Working Alphabet (Γ):</label>
+                    <input type="text" id="input_gamma" placeholder="Comma-separated symbols" value="a,b" class="flex-1 p-1 border rounded bg-gray-100" readonly>
+                </div>
+
                 <div class="flex items-center gap-2">
                     <label for="F" class="w-32">Terminating Words:</label>
-                    <input type="text" id="input_F" placeholder="Comma-separated symbols" value="011" class="flex-1 p-1 border rounded">
+                    <input type="text" id="input_F" placeholder="Comma-separated symbols" value="011" class="flex-1 p-1 border rounded bg-gray-100" readonly>
                 </div>
+
             </div>
         </div>
     </div>
@@ -76,15 +88,58 @@
     <div class="flex gap-2 mt-4">
         <button id="button_step" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Step</button>
         <button id="button_steps" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Steps</button>
+
+        <!-- 
         <button id="button_left" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Left</button>
-        <button id="button_right" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Right</button>
-        <button id="button_reset" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Reset</button>
+        <button id="button_right" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Right</button> 
         <button id="button_fast_forward" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Fast-Forward</button>
+        -->
+
+        <button id="button_reset" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Reset</button>
     </div>
 
     <div id="ma-display">
         <h2>MA</h2>
         <div id="output_ma"></div>
+    </div>
+
+        <div class="mt-8 p-4 bg-gray-100 rounded-lg">
+        <h2 class="text-xl font-bold mb-4">How to Use This Mobile Automata Simulator</h2>
+        
+        <div class="mb-4">
+            <h3 class="text-lg font-semibold">Basic Operation</h3>
+            <ul class="list-disc pl-6">
+                <li>Enter the initial tape contents and head position</li>
+                <li>Define the transition function (δ) in the format: <code>input,output,direction</code> (one per line)</li>
+                <li>Set accepting words (A) and blank symbol (b)</li>
+                <li>The machine will terminate when it reaches a word with no defined transition in \delta and accept if this word is in A</li>
+                <li>Use the <strong>Step</strong> button to execute one step of the automaton</li>
+                <li>Use the <strong>Steps</strong> button to execute 10 steps (or until termination)</li>
+                <li>Use the <strong>Reset</strong> button to restart with the current configuration</li>
+            </ul>
+        </div>
+        
+        <div class="mb-4">
+            <h3 class="text-lg font-semibold">Automatic Fields</h3>
+            <p>The following fields are calculated automatically based on your inputs:</p>
+            <ul class="list-disc pl-6">
+                <li><strong>Input Size (n)</strong>: Determined from the length of the input strings in your transition function</li>
+                <li><strong>Input Alphabet (Σ)</strong>: Derived from the symbols used in your tape and transitions</li>
+                <li><strong>Working Alphabet (Γ)</strong>: Includes all symbols used in transitions and the input alphabet</li>
+                <li><strong>Terminating Words</strong>: Words that have no defined transitions in your function</li>
+            </ul>
+        </div>
+        
+        <div class="mb-4">
+            <h3 class="text-lg font-semibold">Troubleshooting</h3>
+            <p>If the animations go out of sync (which can happen when the browser tab is running in the background), simply click the <strong>Reset</strong> button to realign the visual representation.</p>
+        </div>
+        
+        <div>
+            <h3 class="text-lg font-semibold">Sharing Your Machine</h3>
+            <p>Your transition function (δ), accepting words (A), and blank symbol (b) are saved in your browser's local storage. To share your machine with others, they will need to copy these three values.</p>
+        </div>
+
     </div>
 </body>
 
