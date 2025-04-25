@@ -4,19 +4,18 @@ const CELL_SIZE_PX = 40;
 const VISIBLE = 27;
 const RADIUS_VISIBLE = Math.floor(VISIBLE/2);
 
-const STEP_DURATION = 400
-const STEPS_DURATION = 1000
+const STEP_DURATION = 1000;
+const STEPS_DURATION = 400;
 
 // Animation variables
-let isPageVisible = true;
-let animationPaused = false;
+let executing = false;
 
 // Initialize tape and MA
 let tape = null;
 let ma = null;
 let steps = 10;
 let terminated = false;
-
+let acceptingSet = new Set(); // Set of accepting words
 
 function make_cell(val, left_px, top_px=CELL_SIZE_PX) {
     return $('<div>')
@@ -34,6 +33,93 @@ function make_cell(val, left_px, top_px=CELL_SIZE_PX) {
             'width': `${CELL_SIZE_PX}px`
         })
         .text(val);
+}
+
+// Function to show notification message (termination or error)
+function showNotification(message, isError = false, isAccepted = false) {
+    // Remove any existing notification
+    $('#notification-message').remove();
+    
+    // Determine notification styling based on type
+    let bgColor, textColor;
+    
+    if (isError) {
+        bgColor = '#f87171'; // red-400 for errors
+        textColor = '#7f1d1d'; // red-900 for errors
+    } else {
+        // For termination messages
+        bgColor = isAccepted ? '#10b981' : '#f87171'; // green-500 for accept, red-400 for reject
+        textColor = isAccepted ? '#064e3b' : '#7f1d1d'; // green-900 for accept, red-900 for reject
+    }
+    
+    // Create notification div with initial state (hidden)
+    const notificationDiv = $('<div>')
+        .attr('id', 'notification-message')
+        .css({
+            'background-color': bgColor,
+            'color': textColor,
+            'padding': '0.75rem',
+            'border-radius': '0.375rem',
+            'font-weight': 'bold',
+            'text-align': 'center',
+            'margin-top': '1rem',
+            'width': '100%',
+            'opacity': '0',
+            'transform': 'translateY(20px)',
+            'transition': 'opacity 0.3s ease, transform 0.3s ease'
+        })
+        .text(message);
+    
+    // Append the message after the tape
+    $('#output_tape').after(notificationDiv);
+    
+    // Trigger reflow to ensure transition works
+    notificationDiv[0].offsetHeight;
+    
+    // Animate in
+    notificationDiv.css({
+        'opacity': '1',
+        'transform': 'translateY(0)'
+    });
+}
+
+// Function to show termination message
+function showTerminationMessage() {
+    // Get the current word at the head
+    const currentWord = tape.arr.slice(tape.head, tape.head + ma.n).join('');
+    
+    // Check if word is in accepting set
+    const isAccepted = acceptingSet.has(currentWord);
+    
+    // Show notification
+    showNotification(
+        isAccepted ? 'Machine has terminated and ACCEPTS!' : 'Machine has terminated and REJECTS!',
+        false,
+        isAccepted
+    );
+}
+
+// Function to show error message
+function showErrorMessage(message) {
+    showNotification(message, true);
+}
+
+// Function to hide notification message
+function hideNotification() {
+    const notification = $('#notification-message');
+    
+    if (notification.length) {
+        // Animate out
+        notification.css({
+            'opacity': '0',
+            'transform': 'translateY(20px)'
+        });
+        
+        // Remove after transition completes
+        setTimeout(() => {
+            notification.remove();
+        }, 300);
+    }
 }
 
 class Tape {
@@ -101,7 +187,6 @@ class Tape {
         }
     }
 
-
     display_output(output) {
         this.lower_inactive_cells();
 
@@ -110,10 +195,6 @@ class Tape {
             const cell = make_cell(output[i], RADIUS_VISIBLE*CELL_SIZE_PX + i*CELL_SIZE_PX, CELL_SIZE_PX);
             
             // Apply transition only if page is visible
-            if (!isPageVisible) {
-                cell.css('transition', 'none');
-            }
-            
             this.div.append(cell);
 
             // Move previous cell to inactive cell
@@ -142,7 +223,6 @@ class Tape {
         }
     }
 
-
     move_tape_left() {
         let idx_to_get = this.head+RADIUS_VISIBLE+1;
         if (idx_to_get == this.arr.length) {
@@ -155,9 +235,6 @@ class Tape {
         this.active_cells.push(cell);
 
         this.active_cells.forEach((cell, i) => {
-            if (!isPageVisible) {
-                cell.css('transition', 'none');
-            }
             // Convert px to % of parent div width
             const currentLeft = parseFloat(cell.css('left'))
             // Move left
@@ -195,9 +272,6 @@ class Tape {
         this.active_cells.unshift(cell);
 
         this.active_cells.forEach((cell, i) => {
-            if (!isPageVisible) {
-                cell.css('transition', 'none');
-            }
             // Convert px to % of parent div width
             const currentLeft = parseFloat(cell.css('left'))
             // Move right
@@ -238,6 +312,9 @@ class MA {
     get_output(input) {
         // Look up transition in delta
         if (!(input.join('') in this.delta)) {
+            terminated = true;
+            // Show termination message when no valid transition exists
+            showTerminationMessage();
             return false;
         }
 
@@ -250,6 +327,8 @@ class MA {
         // Look up transition in delta
         if (!(slice.join('') in this.delta)) {
             terminated = true;
+            // Show termination message when no valid transition exists
+            showTerminationMessage();
             return tape;
         }
 
@@ -286,109 +365,210 @@ function parseSymbols(str) {
 
 // Parse delta function string into object
 function parseDelta(str) {
+    if (str.trim() === '') {
+        throw new Error('Transition function cannot be empty');
+    }
+
     const delta = {};
     const lines = str.split('\n');
+    let determinedN = null;
+    
     for (const line of lines) {
         if (line.trim() === '') continue;
-        const [input, output, direction] = line.split(',').map(s => s.trim());
-        if (direction !== 'L' && direction !== 'R') {
-            throw new Error('Direction must be L or R');
+        
+        const parts = line.split(',').map(s => s.trim());
+        if (parts.length !== 3) {
+            throw new Error(`Invalid transition format: ${line} (should be "input, output, direction")`);
         }
-        delta[input] = [output, direction === 'R' ? 1 : -1];
+        
+        const [input, output, direction] = parts;
+        
+        if (direction !== 'L' && direction !== 'R') {
+            throw new Error(`Invalid direction in transition: ${line} (must be L or R)`);
+        }
+        
+        // Check if all inputs and outputs have the same length
+        if (determinedN === null) {
+            determinedN = input.length;
+        } else if (input.length !== determinedN) {
+            throw new Error(`Inconsistent input length in transition: ${line} (expected ${determinedN} characters)`);
+        }
+        
+        if (output.length !== determinedN) {
+            throw new Error(`Input and output must have the same length in transition: ${line}`);
+        }
+        
+        if (input in delta) {
+            throw new Error(`Duplicate transition for input: ${input}`);
+        }
+        
+        delta[input] = [output.split(''), direction === 'R' ? 1 : -1];
     }
-    return delta;
+    
+    return { delta, n: determinedN || 1 }; // Default to 1 if no transitions
 }
 
+// Generate all possible n-length words from gamma
+function generateAllPossibleWords(gamma, n) {
+    const result = [];
+    
+    function backtrack(current) {
+        if (current.length === n) {
+            result.push(current);
+            return;
+        }
+        
+        for (const symbol of gamma) {
+            backtrack(current + symbol);
+        }
+    }
+    
+    backtrack('');
+    return result;
+}
+
+// Parse accepting words
+function parseAcceptingWords(str) {
+    return new Set(str.split(',').map(s => s.trim()).filter(s => s.length > 0));
+}
 
 // Update tape and MA when inputs change
 function loadMA() {
     terminated = false;
+    // Hide any existing notification message when resetting
+    hideNotification();
+    
+    try {
+        const blank_symbol = $('#input_b').val();
+        if (!blank_symbol || blank_symbol.length !== 1) {
+            throw new Error('Blank symbol must be a single character');
+        }
+        
+        const tapeString = $('#input_tape').val();
+        const headPosition = parseInt($('#input_head').val());
+        
+        if (isNaN(headPosition)) {
+            throw new Error('Head position must be a number');
+        }
+        
+        // Parse delta and determine n
+        const { delta, n } = parseDelta($('#input_delta').val());
+        
+        // Update n in the UI
+        $('#input_n').val(n);
+        
+        // Derive sigma from input tape symbols
+        const inputSymbols = new Set(tapeString.split(''));
+        inputSymbols.add(blank_symbol);
+        const sigma = [...inputSymbols];
+        $('#input_sigma').val(sigma.join(','));
+        
+        // Derive gamma from all symbols in delta and sigma
+        const gammaSet = new Set(sigma);
+        
+        // Add all symbols from delta inputs and outputs
+        Object.entries(delta).forEach(([input, [output, _]]) => {
+            for (const char of input) {
+                gammaSet.add(char);
+            }
+            for (const char of output) {
+                gammaSet.add(char);
+            }
+        });
+        
+        const gamma = [...gammaSet];
+        $('#input_gamma').val(gamma.join(','));
+        
+        // Generate all possible words and determine F (non-transitions)
+        const allPossibleWords = generateAllPossibleWords(gamma, n);
+        const F = allPossibleWords.filter(word => !(word in delta));
+        $('#input_F').val(F.join(','));
+        
+        // Parse accepting words
+        acceptingSet = parseAcceptingWords($('#input_A').val());
+        
+        // Validate accepting words
+        for (const word of acceptingSet) {
+            if (word.length !== n) {
+                throw new Error(`Accepting word "${word}" must have length ${n}`);
+            }
+            
+            // Check if all symbols in accepting words are in gamma
+            for (const char of word) {
+                if (!gammaSet.has(char)) {
+                    throw new Error(`Symbol "${char}" in accepting word "${word}" is not in gamma`);
+                }
+            }
+        }
+        
+        // Create new MA
+        ma = new MA(n, sigma, gamma, blank_symbol, delta, F);
 
-    const blank_symbol = $('#input_b').val();
-
-    // Create new MA
-    const n = parseInt($('#input_n').val());
-    const sigma = parseSymbols($('#input_sigma').val());
-
-    // Ensure gamma contains all symbols from sigma
-    const gammaSymbols = parseSymbols($('#input_gamma').val());
-    const gamma = [...new Set([...sigma, ...gammaSymbols, blank_symbol])];
-    $('#input_gamma').val(gamma.join(',')); // Update input container to show full gamma
-
-    // Get blank_symbol symbol and terminating words
-    const b = $('#input_b').val();
-    const F = $('#input_F').val().split(',').map(s => s.trim()).filter(s => s.length > 0);
-
-    const delta = parseDelta($('#input_delta').val());
-    ma = new MA(n, sigma, gamma, b, delta, F);
-
-    // Create new tape
-    const tapeString = $('#input_tape').val();
-    const headPosition = parseInt($('#input_head').val());
-    tape = new Tape(tapeString.split(''), headPosition, blank_symbol, '#output_tape');
-    tape.redraw_div()
+        // Create new tape
+        tape = new Tape(tapeString.split(''), headPosition, blank_symbol, '#output_tape');
+        tape.redraw_div();
+        
+    } catch (error) {
+        // Display error message
+        showErrorMessage(`Error: ${error.message}`);
+        return false;
+    }
+    
+    return true;
 }
 
+function disableButtons() {
+    $('#button_step').prop('disabled', true);
+    $('#button_steps').prop('disabled', true); 
+    $('#button_reset').prop('disabled', true);
+}
+
+function enableButtons() {
+    $('#button_step').prop('disabled', false);
+    $('#button_steps').prop('disabled', false);
+    $('#button_reset').prop('disabled', false);
+}
 
 // Add input event listeners
 $('#input_tape').on('change', loadMA);
 $('#input_head').on('change', loadMA);
-$('#input_n').on('change', loadMA);
-$('#input_sigma').on('change', loadMA);
-$('#input_gamma').on('change', loadMA);
 $('#input_delta').on('change', loadMA);
 $('#input_b').on('change', loadMA);
-$('#input_F').on('change', loadMA);
+$('#input_A').on('change', loadMA);
 
+// Make fields read-only
+$('#input_n').attr('readonly', true);
+$('#input_sigma').attr('readonly', true);
+$('#input_gamma').attr('readonly', true);
+$('#input_F').attr('readonly', true);
 
 // step the MA
 function stepMA(duration=STEP_DURATION) {
-    const button = $('#button_step');
-    if (button.prop('disabled') || animationPaused) return;
+    disableButtons();
     
     // Only set transition if page is visible
-    if (isPageVisible) {
-        tape.div.css('transition-duration', `${duration-50}ms`);
-    } else {
-        tape.div.css('transition', 'none');
-    }
+    tape.div.css('transition-duration', `${duration-50}ms`);
 
-    if (ma && tape) {
-        button.prop('disabled', true);
-        setTimeout(() => button.prop('disabled', false), duration);
-
+    if (ma && tape && !terminated) {
         let input = tape.arr.slice(tape.head, tape.head + ma.n)
         output = ma.get_output(input);
         tape.replace_input_with_output(output);
     }
+
+    enableButtons();
 }
 
 function multiStepMA() {
-    const button = $('#button_steps');
-    if (button.prop('disabled') || animationPaused) return;
-
-    button.prop('disabled', true);
-    
+    disableButtons();
     let count = 0;
+    
     const doStep = () => {
-        if (animationPaused) {
-            // If animations are paused, wait and check again
-            setTimeout(() => {
-                if (!animationPaused) {
-                    doStep();
-                } else {
-                    button.prop('disabled', false);
-                }
-            }, 500);
-            return;
-        }
-        
-        stepMA(STEPS_DURATION);
-        count++;
-        if (count < steps) {
+        if (count < 10 && !terminated) {
+            stepMA(STEPS_DURATION);
+            count++;
             setTimeout(doStep, STEPS_DURATION);
         } else {
-            button.prop('disabled', false);
+            enableButtons();
         }
     };
 
@@ -396,26 +576,29 @@ function multiStepMA() {
 }
 
 // Button event listeners
-$('#button_step').on('click', () => stepMA());
-$('#button_steps').on('click', () => multiStepMA());
-$('#button_left').on('click', () => tape.move_tape_left());
-$('#button_right').on('click', () => tape.move_tape_right());
-$('#button_reset').on('click', () => loadMA());
-
-// Visibility event listener
-document.addEventListener('visibilitychange', function() {
-  isPageVisible = document.visibilityState === 'visible';
-  
-  if (!isPageVisible) {
-    // Pause any active animations when tab is hidden
-    animationPaused = true;
-    $('.active_cells, .inactive_cells').css('transition', 'none');
-  } else {
-    // Resume animations when tab becomes visible again
-    animationPaused = false;
-    $('.active_cells, .inactive_cells').css('transition', 'all ease-in-out');
-    $('.active_cells, .inactive_cells').css('transition-duration', `${STEP_DURATION-50}ms`);
-  }
+$('#button_step').on('click', () => {
+    if (ma && tape) {
+        stepMA();
+    } else {
+        showErrorMessage('Machine is not properly configured');
+    }
 });
 
-loadMA();
+$('#button_steps').on('click', () => {
+    if (ma && tape) {
+        multiStepMA();
+    } else {
+        showErrorMessage('Machine is not properly configured');
+    }
+});
+
+$('#button_reset').on('click', () => loadMA());
+
+// Initial load
+$(document).ready(() => {
+    try {
+        loadMA();
+    } catch (error) {
+        showErrorMessage(`Initialization error: ${error.message}`);
+    }
+});
